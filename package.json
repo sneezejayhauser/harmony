@@ -22,7 +22,8 @@
     "test:verification": "npm run build && node scripts/test-verification.mjs",
     "benchmark:report": "npm run build && node scripts/benchmark-report.mjs",
     "benchmark:tasks": "npm run build && node scripts/benchmark-tasks.mjs",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "prepare": "npm run build || echo 'harmony: skipping build, using committed dist/'"
   },
   "repository": {
     "type": "git",

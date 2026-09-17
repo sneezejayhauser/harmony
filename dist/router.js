@@ -42,7 +42,7 @@ const modelCursor = loadCursor();
  * cooldown to expire and retry the same model (up to 2 waits) before
  * falling to the next tier — preserving capability-first ordering.
  */
-export async function route(req, pool, cb, task = "", preferred) {
+export async function route(req, pool, cb, task = "", preferred, hints) {
     const attempts = [];
     let providerAttempts = 0;
     // Tiny local smoke-test models can answer text but may ignore the tool
@@ -53,10 +53,11 @@ export async function route(req, pool, cb, task = "", preferred) {
         ? pool.filter((entry) => capabilitiesFor(entry.provider, entry.model).tools === "yes" || metadataFor(entry).supportsTools === true)
         : pool;
     const candidates = toolCapable.length > 0 ? toolCapable : pool;
-    // TypeSafe (System One) classifies the task once per route call: kind,
-    // difficulty, tool need. When no TYPESAFE_API_KEY is set (or the call
-    // fails) this is undefined and the legacy keyword regex decides.
-    const classification = task ? await classifyTask(task) : undefined;
+    // TypeSafe (System One) classification of the task: kind, difficulty, tool
+    // need. Prefer the shared per-turn classification from hints so a whole
+    // agent turn costs one API call; classify directly only for standalone
+    // route calls. Undefined (no key, error, timeout) = legacy regex decides.
+    const classification = hints?.classification ?? (task ? await classifyTask(task) : undefined);
     const codingTask = classification ? classification.kind === "coding" : /\b(fix|implement|add|change|edit|refactor|debug|test|build|code|file|repository|repo)\b/i.test(task);
     // Difficulty gates how much static capability score matters: trivial tasks
     // flatten the ranking so cheap/unlimited models win ties; hard tasks widen

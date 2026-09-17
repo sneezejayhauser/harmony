@@ -1,4 +1,5 @@
 .agent-recordings/
+node_modules/
 
 # Local Mega-to-FreeImage side project
 scripts/mega-to-freeimage.mjs

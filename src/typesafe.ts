@@ -29,6 +29,15 @@ export interface TaskClassification {
   needsTools: number;
 }
 
+/**
+ * One classification per agent turn, shared between runAgent and every
+ * route() call in that turn. Without this, the agent loop and the router
+ * would each POST to the TypeSafe API for the same task.
+ */
+export interface RouteHints {
+  classification?: TaskClassification;
+}
+
 let client: TypeSafeClient | undefined;
 let disabled = false;
 

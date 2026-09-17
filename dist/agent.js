@@ -22,17 +22,17 @@ export async function runAgent(userTask, pool, cfg, cwd, history = [], events = 
     debugLog("agent.start", { task: userTask, cwd, poolSize: pool.length, history: history.length });
     const tools = toolDefs();
     let selectedModel;
-    // TypeSafe (System One) judgment on whether this task needs repository
-    // tools. Replaces the keyword regex below when a TYPESAFE_API_KEY is set;
-    // the classification is shared with the router via its own call there.
+    // TypeSafe (System One) classification, made once per turn and shared with
+    // every route() call below via hints — one API call per turn, not per call.
     const classification = await classifyTask(userTask);
+    const routeHints = { classification };
     const legacyRequiresTool = (task) => /\b(use|run|read|inspect|check|list|search|find)\b.{0,40}\b(tool|file|repo|repository|directory|test|code|package\.json|tsconfig)/i.test(task);
     const requiresTool = classification ? classification.needsTools > 0.5 : legacyRequiresTool(userTask);
     let plan;
     if (cfg.planning === true && !history.some((m) => m.role === "system" && m.content.includes("HARMONY_PLAN"))) {
         events.onProgress?.({ phase: "planning", message: "Creating an implementation plan", iteration: 0 });
         messages.push({ role: "system", content: "HARMONY_PLAN: Before making changes, briefly state the objective, 1-5 implementation steps, and verification commands. Do not edit files in the planning response." });
-        const planResp = await route({ messages, maxTokens: Math.min(cfg.maxTokens ?? 4096, 800), temperature: 0.2, topP: 0.9, timeoutMs: Number(process.env.HARMONY_TIMEOUT_MS ?? process.env.SNEEZE_TIMEOUT_MS ?? 10_000) }, pool, { onCorruption: events.onCorruption }, userTask);
+        const planResp = await route({ messages, maxTokens: Math.min(cfg.maxTokens ?? 4096, 800), temperature: 0.2, topP: 0.9, timeoutMs: Number(process.env.HARMONY_TIMEOUT_MS ?? process.env.SNEEZE_TIMEOUT_MS ?? 10_000) }, pool, { onCorruption: events.onCorruption }, userTask, undefined, routeHints);
         selectedModel = planResp.entry;
         plan = parsePlan(planResp.content, userTask);
         messages.push({ role: "assistant", content: planResp.content });
@@ -53,7 +53,7 @@ export async function runAgent(userTask, pool, cfg, cwd, history = [], events = 
             temperature: 1.0,
             topP: 0.9,
             timeoutMs: Number(process.env.HARMONY_TIMEOUT_MS ?? process.env.SNEEZE_TIMEOUT_MS ?? 10_000),
-        }, pool, { onContent: events.onContent, onCorruption: events.onCorruption }, userTask, selectedModel);
+        }, pool, { onContent: events.onContent, onCorruption: events.onCorruption }, userTask, selectedModel, routeHints);
         selectedModel = resp.entry;
         debugLog("agent.model", { provider: resp.entry.provider, model: resp.entry.model, iteration: i + 1 });
         events.onModel?.(resp.entry.provider, resp.entry.model);

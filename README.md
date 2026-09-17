@@ -24,10 +24,12 @@ Node.js 20 or newer is required. Git and source installs build automatically.
 
 ### From GitHub
 
-To use the current repository version before it is published to npm:
+To use the current repository version before it is published to npm, install
+from the tarball URL (npm symlinks `git+https` installs into a cache temp
+directory that macOS purges, which leaves a broken `harmony` binary):
 
 ```bash
-npm install --global https://github.com/sneezejayhauser/harmony.git
+npm install --global https://codeload.github.com/sneezejayhauser/harmony/tar.gz/main
 harmony
 ```
 
