@@ -124,6 +124,26 @@ Current providers are:
 | `logfare` | Account-wide RPM limit |
 | `pollinations` | Keyed, per-model limits |
 
+### TypeSafe task classification (optional)
+
+When `TYPESAFE_API_KEY` is set, Harmony asks [TypeSafe](https://typesafe.ai)'s
+System One model (`jev-latest`) to classify each task before routing. One
+`systemOne` call returns three typed answers:
+
+- **kind** (Choice) — `coding` / `writing` / `analysis` / `chat`. Replaces the
+  keyword regex that decides whether coding-benchmark scores boost a model.
+- **difficulty** (Score, 0–2) — scales how much static capability scores
+  matter, so trivial tasks flatten the ranking (cheap/unlimited models win
+  ties) and hard tasks spend scarce high-capability quota where it pays off.
+- **needsTools** (Noul) — the probability the task requires repository tools.
+  Replaces the keyword regex the agent loop uses to reject text-only answers
+  on tasks that needed file inspection.
+
+TypeSafe is not a chat provider and never handles agent turns — it only makes
+these routing judgments. Every call is best-effort: no key, a network error,
+or a timeout falls back to the legacy heuristics. Disable it entirely with
+`"typesafe": false` in the config file.
+
 Routing is model-first rather than provider-tier-first. Each request is ranked
 using the model's capability, coding, arena-preference, speed, latency, and
 semantic tags. The router then checks that individual model's availability and

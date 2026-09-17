@@ -36,6 +36,8 @@ export interface Config {
   maxRepairIterations?: number;
   /** require a short planning turn before repository changes (default false) */
   planning?: boolean;
+  /** use TypeSafe (System One) for task classification when TYPESAFE_API_KEY is set (default true) */
+  typesafe?: boolean;
 }
 
 function configDir(): string {

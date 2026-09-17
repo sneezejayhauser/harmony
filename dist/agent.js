@@ -2,6 +2,7 @@ import { route } from "./router.js";
 import { runTool, toolDefs, isDangerous } from "./tools.js";
 import { debugLog } from "./debug-log.js";
 import { verifyWorkspace } from "./verification.js";
+import { classifyTask } from "./typesafe.js";
 export class AgentAborted extends Error {
     constructor() {
         super("aborted by user");
@@ -21,6 +22,12 @@ export async function runAgent(userTask, pool, cfg, cwd, history = [], events = 
     debugLog("agent.start", { task: userTask, cwd, poolSize: pool.length, history: history.length });
     const tools = toolDefs();
     let selectedModel;
+    // TypeSafe (System One) judgment on whether this task needs repository
+    // tools. Replaces the keyword regex below when a TYPESAFE_API_KEY is set;
+    // the classification is shared with the router via its own call there.
+    const classification = await classifyTask(userTask);
+    const legacyRequiresTool = (task) => /\b(use|run|read|inspect|check|list|search|find)\b.{0,40}\b(tool|file|repo|repository|directory|test|code|package\.json|tsconfig)/i.test(task);
+    const requiresTool = classification ? classification.needsTools > 0.5 : legacyRequiresTool(userTask);
     let plan;
     if (cfg.planning === true && !history.some((m) => m.role === "system" && m.content.includes("HARMONY_PLAN"))) {
         events.onProgress?.({ phase: "planning", message: "Creating an implementation plan", iteration: 0 });
@@ -52,8 +59,8 @@ export async function runAgent(userTask, pool, cfg, cwd, history = [], events = 
         events.onModel?.(resp.entry.provider, resp.entry.model);
         if (resp.toolCalls.length === 0) {
             const empty = !resp.content.trim();
-            const requiresTool = /\b(use|run|read|inspect|check|list|search|find)\b.{0,40}\b(tool|file|repo|repository|directory|test|code|package\.json|tsconfig)/i.test(userTask);
-            if ((empty || (requiresTool && toolCallsMade.length === 0)) && qualityRetries < 2) {
+            const needsTools = requiresTool;
+            if ((empty || (needsTools && toolCallsMade.length === 0)) && qualityRetries < 2) {
                 qualityRetries++;
                 messages.push({ role: "assistant", content: resp.content });
                 messages.push({ role: "user", content: empty ? "Your response was empty. Continue the task and provide a useful answer." : "You did not use a tool even though this task requires repository inspection. Use the appropriate read-only tool before answering." });
@@ -71,7 +78,7 @@ export async function runAgent(userTask, pool, cfg, cwd, history = [], events = 
                 messages.push({ role: "user", content: verificationPrompt(verification) });
                 continue;
             }
-            const qualityFailed = empty || (requiresTool && toolCallsMade.length === 0);
+            const qualityFailed = empty || (needsTools && toolCallsMade.length === 0);
             const result = { finalText: qualityFailed ? "Unable to produce a valid task result." : resp.content, status: qualityFailed || verification?.passed === false ? "failed" : "completed", iterations: i + 1, filesChanged, verificationPassed: verification?.passed, verification, toolCallsMade, messages, plan };
             events.onTurnEnd?.(result);
             events.onProgress?.({ phase: result.status === "completed" ? "completed" : "failed", message: result.finalText, iteration: i + 1 });

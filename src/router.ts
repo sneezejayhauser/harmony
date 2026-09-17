@@ -7,6 +7,7 @@ import { metadataFor, scoreModel, codingScore } from "./model-data.js";
 import { debugLog } from "./debug-log.js";
 import { healthCheck, recordHealthFailure, recordHealthSuccess } from "./health.js";
 import { capabilitiesFor } from "./catalog.js";
+import { classifyTask } from "./typesafe.js";
 
 export interface RouteAttempt {
   entry: ModelEntry;
@@ -75,10 +76,18 @@ export async function route(
     ? pool.filter((entry) => capabilitiesFor(entry.provider, entry.model).tools === "yes" || metadataFor(entry).supportsTools === true)
     : pool;
   const candidates = toolCapable.length > 0 ? toolCapable : pool;
-  const codingTask = /\b(fix|implement|add|change|edit|refactor|debug|test|build|code|file|repository|repo)\b/i.test(task);
+  // TypeSafe (System One) classifies the task once per route call: kind,
+  // difficulty, tool need. When no TYPESAFE_API_KEY is set (or the call
+  // fails) this is undefined and the legacy keyword regex decides.
+  const classification = task ? await classifyTask(task) : undefined;
+  const codingTask = classification ? classification.kind === "coding" : /\b(fix|implement|add|change|edit|refactor|debug|test|build|code|file|repository|repo)\b/i.test(task);
+  // Difficulty gates how much static capability score matters: trivial tasks
+  // flatten the ranking so cheap/unlimited models win ties; hard tasks widen
+  // the gap so scarce high-capability quota is spent where it pays off.
+  const capabilityWeight = classification ? 0.6 + classification.difficulty * 0.4 : 1;
   const ranked = [...candidates].sort((a, b) => {
-    const aScore = scoreModel(a, task) + (codingTask ? codingScore(a) : 0);
-    const bScore = scoreModel(b, task) + (codingTask ? codingScore(b) : 0);
+    const aScore = scoreModel(a, task) * capabilityWeight + (codingTask ? codingScore(a) : 0);
+    const bScore = scoreModel(b, task) * capabilityWeight + (codingTask ? codingScore(b) : 0);
     return bScore - aScore;
   });
   // Keep one model for the whole agent turn whenever possible. Switching
