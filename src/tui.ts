@@ -375,6 +375,19 @@ async function handleCommand(state: TuiState, input: string, rl: readline.Interf
         console.log(`  ${c.cyan}${p.id.padEnd(20)}${c.reset} ${c.gray}${p.notes}${c.reset}`);
       }
       break;
+    case "/typesafe": {
+      const key = await withPicker(rl, () => readSecret("TypeSafe API key (leave empty to cancel): "));
+      if (!key) {
+        console.log(c.yellow("cancelled — existing TypeSafe key unchanged") + c.reset);
+        break;
+      }
+      state.cfg.typesafe = true;
+      state.cfg.typesafeApiKey = key;
+      saveConfig(state.cfg);
+      process.env.TYPESAFE_API_KEY = key;
+      console.log(c.green("✓ TypeSafe enabled for this session and saved configuration") + c.reset);
+      break;
+    }
     case "/provider":
     case "/add-provider": {
       const prov = arg || (await withPicker(rl, pickProvider));
@@ -636,6 +649,7 @@ function printHelp(): void {
     ["/provider [id]", "configure one provider"],
     ["/pool", "show model pool"],
     ["/providers", "list providers"],
+    ["/typesafe", "enter or replace the TypeSafe API key"],
     ["/usage", "token/request usage"],
     ["/context", "context window bar"],
     ["/compact", "summarize older messages"],

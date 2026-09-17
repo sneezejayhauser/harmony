@@ -1,18 +1,27 @@
-import { TypeSafeClient, choice, score, noul } from "@typesafe-ai/sdk";
 import { debugLog } from "./debug-log.js";
 import { loadConfig } from "./config.js";
 let client;
+let sdkPromise;
 let disabled = false;
-function getClient() {
+async function getClient() {
     if (disabled)
         return undefined;
-    if (loadConfig().typesafe === false)
+    const config = loadConfig();
+    if (config.typesafe === false)
         return undefined;
-    if (!process.env.TYPESAFE_API_KEY)
+    const apiKey = process.env.TYPESAFE_API_KEY ?? config.typesafeApiKey;
+    if (!apiKey)
         return undefined;
     if (!client) {
         try {
-            client = new TypeSafeClient({ timeout: 5_000 });
+            sdkPromise ??= import("@typesafe-ai/sdk").catch((err) => {
+                debugLog("typesafe.sdk_unavailable", { error: err?.message ?? String(err) });
+                return undefined;
+            });
+            const sdk = await sdkPromise;
+            if (!sdk)
+                return undefined;
+            client = new sdk.TypeSafeClient({ apiKey, timeout: 5_000 });
         }
         catch (err) {
             debugLog("typesafe.init_error", { error: err?.message ?? String(err) });
@@ -24,10 +33,11 @@ function getClient() {
 }
 /** Classify a user task. Returns undefined when TypeSafe is unavailable. */
 export async function classifyTask(task) {
-    const c = getClient();
+    const c = await getClient();
     if (!c)
         return undefined;
     try {
+        const { choice, score, noul } = await import("@typesafe-ai/sdk");
         const res = await c.systemOne({
             state: { task },
             questions: {

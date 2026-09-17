@@ -1,4 +1,3 @@
-import { TypeSafeClient, choice, score, noul } from "@typesafe-ai/sdk";
 import { debugLog } from "./debug-log.js";
 import { loadConfig } from "./config.js";
 
@@ -38,16 +37,27 @@ export interface RouteHints {
   classification?: TaskClassification;
 }
 
-let client: TypeSafeClient | undefined;
+type TypeSafeClientLike = { systemOne(request: unknown): Promise<any> };
+
+let client: TypeSafeClientLike | undefined;
+let sdkPromise: Promise<typeof import("@typesafe-ai/sdk") | undefined> | undefined;
 let disabled = false;
 
-function getClient(): TypeSafeClient | undefined {
+async function getClient(): Promise<TypeSafeClientLike | undefined> {
   if (disabled) return undefined;
-  if (loadConfig().typesafe === false) return undefined;
-  if (!process.env.TYPESAFE_API_KEY) return undefined;
+  const config = loadConfig();
+  if (config.typesafe === false) return undefined;
+  const apiKey = process.env.TYPESAFE_API_KEY ?? config.typesafeApiKey;
+  if (!apiKey) return undefined;
   if (!client) {
     try {
-      client = new TypeSafeClient({ timeout: 5_000 });
+      sdkPromise ??= import("@typesafe-ai/sdk").catch((err: any) => {
+        debugLog("typesafe.sdk_unavailable", { error: err?.message ?? String(err) });
+        return undefined;
+      });
+      const sdk = await sdkPromise;
+      if (!sdk) return undefined;
+      client = new sdk.TypeSafeClient({ apiKey, timeout: 5_000 });
     } catch (err: any) {
       debugLog("typesafe.init_error", { error: err?.message ?? String(err) });
       disabled = true;
@@ -59,9 +69,10 @@ function getClient(): TypeSafeClient | undefined {
 
 /** Classify a user task. Returns undefined when TypeSafe is unavailable. */
 export async function classifyTask(task: string): Promise<TaskClassification | undefined> {
-  const c = getClient();
+  const c = await getClient();
   if (!c) return undefined;
   try {
+    const { choice, score, noul } = await import("@typesafe-ai/sdk");
     const res = await c.systemOne({
       state: { task },
       questions: {

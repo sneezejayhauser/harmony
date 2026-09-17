@@ -29,6 +29,7 @@ function printHelp(): void {
   /pool            show model pool
   /cwd <dir>       change working directory
   /yolo            toggle auto-approval of dangerous tools
+  /typesafe        enter or replace the TypeSafe API key
   /clear           clear screen
   /exit            quit
 
@@ -162,6 +163,18 @@ export async function startRepl(pool: ModelEntry[], cfg: Config, cwd: string): P
           state.cfg.yolo = !state.cfg.yolo;
           console.log(C.yellow(`yolo ${state.cfg.yolo ? "ON — no confirmations" : "OFF"}`));
           break;
+        case "/typesafe": {
+          const key = await readSecret("TypeSafe API key: ");
+          if (!key) console.log(C.dim("cancelled — existing TypeSafe key unchanged"));
+          else {
+            state.cfg.typesafe = true;
+            state.cfg.typesafeApiKey = key;
+            const { saveConfig } = await import("./config.js");
+            saveConfig(state.cfg);
+            console.log(C.green("TypeSafe enabled and saved"));
+          }
+          break;
+        }
         case "/clear":
           console.clear();
           break;
@@ -186,5 +199,30 @@ export async function startRepl(pool: ModelEntry[], cfg: Config, cwd: string): P
   rl.on("close", () => {
     console.log(C.dim("\nbye"));
     process.exit(0);
+  });
+}
+
+async function readSecret(prompt: string): Promise<string | undefined> {
+  if (!process.stdin.isTTY) return undefined;
+  process.stdout.write(prompt);
+  process.stdin.setRawMode(true);
+  return new Promise((resolve) => {
+    let value = "";
+    const onData = (data: Buffer) => {
+      for (const ch of data.toString()) {
+        if (ch === "\r" || ch === "\n") {
+          process.stdin.removeListener("data", onData);
+          process.stdin.setRawMode(false);
+          process.stdout.write("\n");
+          resolve(value.trim() || undefined);
+        } else if (ch === "\u0003" || ch === "\u001b") {
+          process.stdin.removeListener("data", onData);
+          process.stdin.setRawMode(false);
+          process.stdout.write("\n");
+          resolve(undefined);
+        } else if (ch >= " ") value += ch;
+      }
+    };
+    process.stdin.on("data", onData);
   });
 }

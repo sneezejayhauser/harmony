@@ -52,6 +52,7 @@ Pool management:
 
 Other:
   harmony setup                          Show provider + key setup
+  harmony typesafe                       Enter or replace the TypeSafe API key
   harmony providers                      List built-in providers
   harmony --help
 
@@ -222,6 +223,49 @@ function cmdDoctor(): void {
   console.log(missing.length === 0 ? "\n✓ configuration looks usable" : "\n✗ some configured providers have missing keys");
 }
 
+async function cmdTypeSafe(): Promise<void> {
+  const cfg = loadConfig();
+  const key = await readSecret("TypeSafe API key: ");
+  if (!key) {
+    console.log("Cancelled; existing TypeSafe configuration unchanged.");
+    return;
+  }
+  cfg.typesafe = true;
+  cfg.typesafeApiKey = key;
+  saveConfig(cfg);
+  console.log("TypeSafe enabled and saved to the Harmony config.");
+}
+
+async function readSecret(prompt: string): Promise<string | undefined> {
+  if (!process.stdin.isTTY) throw new Error("harmony typesafe requires an interactive terminal");
+  process.stdout.write(prompt);
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+  return new Promise((resolve) => {
+    let value = "";
+    const onData = (data: Buffer) => {
+      for (const ch of data.toString()) {
+        if (ch === "\r" || ch === "\n") {
+          process.stdin.removeListener("data", onData);
+          process.stdin.setRawMode(false);
+          process.stdout.write("\n");
+          resolve(value.trim() || undefined);
+        } else if (ch === "\u0003" || ch === "\u001b") {
+          process.stdin.removeListener("data", onData);
+          process.stdin.setRawMode(false);
+          process.stdout.write("\n");
+          resolve(undefined);
+        } else if (ch === "\u007f") {
+          value = value.slice(0, -1);
+        } else if (ch >= " ") {
+          value += ch;
+        }
+      }
+    };
+    process.stdin.on("data", onData);
+  });
+}
+
 async function cmdRun(task: string, cfg: Config, resumeId?: string): Promise<void> {
   const startedAt = new Date().toISOString();
   const missing = new Set<string>();
@@ -360,6 +404,9 @@ function cDim(s: string): string {
       break;
     case "setup":
       cmdSetup();
+      break;
+    case "typesafe":
+      await cmdTypeSafe();
       break;
     case "providers":
       cmdProviders();

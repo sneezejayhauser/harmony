@@ -173,6 +173,26 @@ npm run test:fake-stream
 npm run benchmark:report
 ```
 
+To measure every configured provider model without sending repository data, use
+the rate-aware reliability probe:
+
+```bash
+# Inspect the plan; sends nothing
+npm run test:models -- --dry-run
+
+# Send one tiny READY probe per configured model
+npm run test:models -- --confirm --resume
+```
+
+The probe uses each provider's configured RPM bucket, spaces requests instead
+of bursting, waits after HTTP 429 responses, skips providers without keys, and
+writes secret-free JSONL results to
+`.agent-recordings/model-reliability.jsonl`. `--resume` skips models already
+completed in the output file. The test consumes real provider quota; OpenRouter
+and TokenReply are intentionally slow because their limits are account-wide.
+Use `--timeout`, `--probe-count`, and `--output` to adjust a run. It sends only
+the fixed probe prompt and never reads workspace files.
+
 ### Opt-in anonymous telemetry
 
 Telemetry is disabled by default. When enabled, Harmony queues only provider

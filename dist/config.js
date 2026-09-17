@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync, chmodSync } from "node:fs";
 import { dirname } from "node:path";
 import { homedir } from "node:os";
 function configDir() {
@@ -26,6 +26,10 @@ export function saveConfig(cfg) {
     const p = configPath();
     mkdirSync(dirname(p), { recursive: true });
     writeFileSync(p, JSON.stringify(cfg, null, 2) + "\n");
+    try {
+        chmodSync(p, 0o600);
+    }
+    catch { /* best effort on filesystems without POSIX permissions */ }
 }
 export function defaultConfig() {
     return {

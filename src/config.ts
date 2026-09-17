@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync, chmodSync } from "node:fs";
 import { dirname } from "node:path";
 import { homedir } from "node:os";
 import type { ProviderId } from "./providers.js";
@@ -38,6 +38,8 @@ export interface Config {
   planning?: boolean;
   /** use TypeSafe (System One) for task classification when TYPESAFE_API_KEY is set (default true) */
   typesafe?: boolean;
+  /** Optional TypeSafe key entered through /typesafe. Prefer the environment variable in CI. */
+  typesafeApiKey?: string;
 }
 
 function configDir(): string {
@@ -67,6 +69,7 @@ export function saveConfig(cfg: Config): void {
   const p = configPath();
   mkdirSync(dirname(p), { recursive: true });
   writeFileSync(p, JSON.stringify(cfg, null, 2) + "\n");
+  try { chmodSync(p, 0o600); } catch { /* best effort on filesystems without POSIX permissions */ }
 }
 
 export function defaultConfig(): Config {

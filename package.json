@@ -20,8 +20,11 @@
     "test:telemetry": "npm run build && node scripts/test-telemetry.mjs",
     "test:agent-runtime": "npm run build && node scripts/test-agent-runtime.mjs",
     "test:verification": "npm run build && node scripts/test-verification.mjs",
+    "test:typesafe": "npm run build && node scripts/test-typesafe.mjs",
+    "test:optional-typesafe": "npm run build && node scripts/test-optional-typesafe.mjs",
     "benchmark:report": "npm run build && node scripts/benchmark-report.mjs",
     "benchmark:tasks": "npm run build && node scripts/benchmark-tasks.mjs",
+    "test:models": "python3 scripts/test-models.py",
     "prepublishOnly": "npm run build",
     "prepare": "npm run build || echo 'harmony: skipping build, using committed dist/'"
   },
