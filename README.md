@@ -126,6 +126,26 @@ Current providers are:
 | `logfare` | Account-wide RPM limit |
 | `pollinations` | Keyed, per-model limits |
 
+
+### How to get Provider Keys
+
+**OpenRouter**
+go to https://OpenRouter.ai and get a key
+
+**Inceptionlabs**
+go to https://platform.inceptionlabs.ai
+
+**TokenReply**
+go to https://www.tokenreply.com/register?aff=n7Lb and get a key
+
+**logfare**
+go to https://logfare.ai/login and get a key
+
+**Pollinations**
+
+Sign Up at enter.pollinations.ai and get a key
+
+
 ### TypeSafe task classification (optional)
 
 When `TYPESAFE_API_KEY` is set, Harmony asks [TypeSafe](https://typesafe.ai)'s
